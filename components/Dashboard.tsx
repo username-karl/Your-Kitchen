@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { WeeklyPlan, UserProfile, PlannedMeal } from '../types';
-import { Calendar, ShoppingBag, Clock, BookOpen, Leaf, Layers, X, ChefHat, RefreshCw, LayoutGrid, Zap, AlignLeft } from 'lucide-react';
+import { WeeklyPlan, UserProfile, PlannedMeal, Recipe } from '../types';
+import { Calendar, ShoppingBag, Clock, BookOpen, Leaf, Layers, X, ChefHat, RefreshCw, LayoutGrid, Zap, AlignLeft, Save } from 'lucide-react';
 
 interface DashboardProps {
   profile: UserProfile;
   onSwapMeal: (text: string) => void;
+  onSaveRecipe: (recipe: Recipe) => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ profile, onSwapMeal }) => {
+const Dashboard: React.FC<DashboardProps> = ({ profile, onSwapMeal, onSaveRecipe }) => {
   const [activeTab, setActiveTab] = useState<'menu' | 'prep' | 'grocery'>('menu');
   const [selectedMeal, setSelectedMeal] = useState<{ day: string; meal: PlannedMeal } | null>(null);
 
@@ -23,6 +24,22 @@ const Dashboard: React.FC<DashboardProps> = ({ profile, onSwapMeal }) => {
 
   const handleSwapRequest = (day: string, mealName: string) => {
     onSwapMeal(`I want to swap the ${day} meal "${mealName}". I'm looking for something different.`);
+  };
+
+  const handleSaveToCookbook = () => {
+    if (!selectedMeal) return;
+    const recipe: Recipe = {
+      id: crypto.randomUUID(),
+      name: selectedMeal.meal.name,
+      timing: selectedMeal.meal.timeEstimate,
+      ingredients: selectedMeal.meal.ingredients,
+      instructions: selectedMeal.meal.instructions,
+      chefTip: selectedMeal.meal.techniqueFocus,
+      whyItWorks: selectedMeal.meal.description,
+      source: 'ai'
+    };
+    onSaveRecipe(recipe);
+    alert("Recipe saved to your cookbook!");
   };
 
   return (
@@ -274,20 +291,29 @@ const Dashboard: React.FC<DashboardProps> = ({ profile, onSwapMeal }) => {
                     </div>
                 </div>
 
-                <div className="p-4 border-t border-stone-100 bg-stone-50/80 backdrop-blur flex justify-between items-center md:justify-end gap-2">
-                    <button 
-                        onClick={() => {
-                            handleSwapRequest(selectedMeal.day, selectedMeal.meal.name);
-                            setSelectedMeal(null);
-                        }}
-                        className="flex items-center gap-2 px-5 py-3 bg-white border border-stone-200 text-stone-700 rounded-xl hover:bg-stone-100 hover:text-chef-900 transition-colors font-bold text-sm shadow-sm"
-                    >
-                        <RefreshCw size={16} className="text-spice-500" />
-                        <span>Swap Meal</span>
-                    </button>
+                <div className="p-4 border-t border-stone-100 bg-stone-50/80 backdrop-blur flex flex-col md:flex-row justify-between items-center md:justify-end gap-2">
+                    <div className="flex gap-2 w-full md:w-auto">
+                        <button 
+                            onClick={() => {
+                                handleSwapRequest(selectedMeal.day, selectedMeal.meal.name);
+                                setSelectedMeal(null);
+                            }}
+                            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-3 bg-white border border-stone-200 text-stone-700 rounded-xl hover:bg-stone-100 hover:text-chef-900 transition-colors font-bold text-sm shadow-sm"
+                        >
+                            <RefreshCw size={16} className="text-spice-500" />
+                            <span>Swap</span>
+                        </button>
+                        <button 
+                            onClick={handleSaveToCookbook}
+                            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-3 bg-white border border-stone-200 text-stone-700 rounded-xl hover:bg-stone-100 hover:text-chef-900 transition-colors font-bold text-sm shadow-sm"
+                        >
+                            <Save size={16} className="text-chef-600" />
+                            <span>Save</span>
+                        </button>
+                    </div>
                     <button 
                         onClick={() => setSelectedMeal(null)}
-                        className="px-8 py-3 bg-chef-900 text-white rounded-xl hover:bg-chef-800 transition-colors font-bold text-sm shadow-lg shadow-chef-900/20"
+                        className="w-full md:w-auto px-8 py-3 bg-chef-900 text-white rounded-xl hover:bg-chef-800 transition-colors font-bold text-sm shadow-lg shadow-chef-900/20"
                     >
                         Got it, Chef
                     </button>

@@ -114,7 +114,11 @@ const App: React.FC = () => {
         )}
 
         {currentView === AppView.DASHBOARD && currentProfile && (
-          <Dashboard profile={currentProfile} onSwapMeal={handleSwapMeal} />
+          <Dashboard 
+            profile={currentProfile} 
+            onSwapMeal={handleSwapMeal} 
+            onSaveRecipe={handleSaveRecipe}
+          />
         )}
 
         {currentView === AppView.QUICK_MEAL && (
