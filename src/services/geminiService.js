@@ -288,3 +288,184 @@ export const generateFinalRecipeCard = async (chatContext) => {
     }
     throw new Error("Failed to generate recipe card");
 };
+
+/**
+ * Swap a single meal with a new AI-generated alternative
+ */
+export const swapSingleMeal = async (currentMeal, userAnswers, reason = "") => {
+    const model = "gemini-3-flash-preview";
+
+    const userContext = userAnswers?.map(a => `Q${a.questionId}: ${a.answer}`).join("\n") || "";
+
+    const mealSchema = {
+        type: Type.OBJECT,
+        properties: {
+            type: { type: Type.STRING },
+            name: { type: Type.STRING },
+            timeEstimate: { type: Type.STRING },
+            description: { type: Type.STRING },
+            techniqueFocus: { type: Type.STRING },
+            servings: { type: Type.STRING },
+            ingredients: {
+                type: Type.ARRAY,
+                items: {
+                    type: Type.OBJECT,
+                    properties: {
+                        name: { type: Type.STRING },
+                        amount: { type: Type.STRING }
+                    },
+                    required: ["name", "amount"]
+                }
+            },
+            instructions: { type: Type.ARRAY, items: { type: Type.STRING } }
+        },
+        required: ["type", "name", "timeEstimate", "description", "techniqueFocus", "ingredients", "instructions"]
+    };
+
+    const prompt = `
+    You are a personal chef AI. The user wants to SWAP OUT this meal for something different:
+    
+    Current Meal: ${currentMeal.name} (${currentMeal.type})
+    ${reason ? `Reason for swap: ${reason}` : ""}
+    
+    User Profile & Dietary Constraints:
+    ${userContext}
+    
+    Generate a NEW ${currentMeal.type} meal that:
+    1. Is DIFFERENT from "${currentMeal.name}"
+    2. Fits the user's dietary restrictions and preferences
+    3. Has similar or shorter prep time
+    4. Has 8-12 detailed ingredients with exact measurements
+    5. Has 8-12 step-by-step instructions with timing and technique cues
+    
+    Return ONLY the new meal in JSON format.
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: model,
+            contents: prompt,
+            config: {
+                systemInstruction: SYSTEM_INSTRUCTION,
+                responseMimeType: "application/json",
+                responseSchema: mealSchema
+            }
+        });
+
+        if (response.text) {
+            return JSON.parse(response.text);
+        }
+        throw new Error("No response content");
+    } catch (error) {
+        console.error("Error swapping meal:", error);
+        throw error;
+    }
+};
+
+/**
+ * Regenerate the entire weekly meal plan
+ */
+export const regenerateWeeklyPlan = async (answers) => {
+    // Simply call the existing generateWeeklyPlan function
+    return generateWeeklyPlan(answers);
+};
+
+/**
+ * Categorize grocery items using AI
+ * @param {Array} items - Array of grocery items (strings or objects with name property)
+ * @returns {Object} - Object with categories as keys and arrays of items as values
+ */
+export const categorizeGroceries = async (items) => {
+    if (!items || items.length === 0) {
+        return {};
+    }
+
+    // Normalize items to strings
+    const itemNames = items.map((item, index) => ({
+        index,
+        name: typeof item === 'string' ? item : item?.name || item?.item || String(item)
+    }));
+
+    const categorySchema = {
+        type: Type.OBJECT,
+        properties: {
+            categories: {
+                type: Type.ARRAY,
+                items: {
+                    type: Type.OBJECT,
+                    properties: {
+                        itemIndex: { type: Type.NUMBER, description: "The original index of the item" },
+                        itemName: { type: Type.STRING, description: "The name of the item" },
+                        category: {
+                            type: Type.STRING,
+                            description: "The category: produce, dairy, protein, pantry, frozen, beverages, bakery, or other"
+                        }
+                    },
+                    required: ["itemIndex", "itemName", "category"]
+                }
+            }
+        },
+        required: ["categories"]
+    };
+
+    const itemList = itemNames.map(i => `${i.index}: ${i.name}`).join('\n');
+
+    const prompt = `You are a grocery store expert. Categorize each of these grocery items into the most appropriate category.
+
+Categories:
+- produce: Fresh fruits, vegetables, herbs, salads
+- dairy: Milk, cheese, yogurt, eggs, butter, cream
+- protein: Meat, poultry, fish, seafood, tofu, tempeh
+- pantry: Spices, oils, canned goods, rice, pasta, flour, sugar, sauces, condiments
+- frozen: Frozen foods, ice cream
+- beverages: Drinks, juice, soda, coffee, tea
+- bakery: Bread, pastries, baked goods
+- other: Anything that doesn't fit above
+
+Items to categorize (format: index: item name):
+${itemList}
+
+Return each item with its index, name, and assigned category.`;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.0-flash-lite",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: categorySchema
+            }
+        });
+
+        if (response.text) {
+            const result = JSON.parse(response.text);
+
+            // Group by category
+            const grouped = {};
+            result.categories.forEach(item => {
+                const category = item.category.toLowerCase();
+                if (!grouped[category]) {
+                    grouped[category] = [];
+                }
+                grouped[category].push({
+                    index: item.itemIndex,
+                    name: item.itemName,
+                    original: items[item.itemIndex]
+                });
+            });
+
+            return grouped;
+        }
+        throw new Error("No response content");
+    } catch (error) {
+        console.error("Error categorizing groceries:", error);
+        // Fallback: return all items as "other"
+        return {
+            other: itemNames.map(item => ({
+                index: item.index,
+                name: item.name,
+                original: items[item.index]
+            }))
+        };
+    }
+};

@@ -69,6 +69,10 @@
       animation: fadeIn 0.5s ease-out forwards;
     }
 
+    .fade-in {
+      animation: fadeIn 0.3s ease-in-out;
+    }
+
     @keyframes fadeIn {
       from {
         opacity: 0;
@@ -79,6 +83,28 @@
         opacity: 1;
         transform: translateY(0);
       }
+    }
+
+    /* Safe area padding for mobile */
+    .pb-safe {
+      padding-bottom: env(safe-area-inset-bottom, 0);
+    }
+
+    /* Slide up animation for modals */
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(100px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .animate-slide-up {
+      animation: slideUp 0.3s ease-out;
     }
   </style>
   <script type="importmap">
